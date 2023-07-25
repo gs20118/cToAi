@@ -371,7 +371,8 @@ T& cai::Tensor<T>::item(std::vector<int>& pos){
 template<typename T>
 template<typename... Ints>
 T& cai::Tensor<T>::item(Ints... b){
-    return item(func::vec(b...));
+    auto a = func::vec(b...);
+    return item(a);
 }
 
 
@@ -396,19 +397,20 @@ int cai::Tensor<T>::index(std::vector<int>& pos){
 template<typename T>
 template<typename... Ints>
 int cai::Tensor<T>::index(Ints... b){
-    return index(func::vec(b...));
+    auto &a = func::vec(b...);
+    return index(a);
 }
 
 template<typename T>
-    void cai::Tensor<T>::nexti(std::vector<int>& v){
-        if(dim>=1) v[dim-1] ++;
-        int n = dim-1;
-        while(n>=1){
-            if(v[n] < shape[n]) break;
-            v[n] = 0 ;
-            v[n-1] ++;
-            n--;
-        }
+void cai::Tensor<T>::nexti(std::vector<int>& v){
+    if(dim>=1) v[dim-1] ++;
+    int n = dim-1;
+    while(n>=1){
+        if(v[n] < shape[n]) break;
+        v[n] = 0 ;
+        v[n-1] ++;
+        n--;
+    }
 }
 
 template<typename T>
@@ -460,7 +462,8 @@ cai::Tensor<T> cai::Tensor<T>::get(std::vector<Range>& pos){
 template<typename T>
 template<typename... Ranges>
 cai::Tensor<T> cai::Tensor<T>::get(Ranges... b){
-    return get(func::vec<cai::Range>(b...));
+    auto a = func::vec<cai::Range>(b...);
+    return get(a);
 }
 
 template<typename T>
@@ -482,7 +485,8 @@ void cai::Tensor<T>::set_grad(){
 template<typename T>
 template<typename... Ints>
 cai::Tensor<T> cai::Tensor<T>::reshape(Ints... b){
-    return reshape(func::vec(b...));
+    auto & a = func::vec(b...);
+    return reshape(a);
 }
 
 template<typename T>
