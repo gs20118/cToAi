@@ -18,15 +18,15 @@ namespace cai{
             this->e = e;
         }
 
-        void print(){
+        void print() const{
             print(std::cout);
         }
-        void print(std::ostream &o){
+        void print(std::ostream &o) const{
             o<<"range(" + std::to_string(s) + ":"+ std::to_string(e) + ")\n";
         }
     };
 }
-std::ostream& operator<<(std::ostream& o, cai::Range r){
+std::ostream& operator<<(std::ostream& o, const cai::Range& r) {
     r.print(o);
     return o;
 }

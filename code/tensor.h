@@ -5,93 +5,165 @@
 #include "processor.h"
 #include "range.h"
 #include "operator.h"
+#include <random>
 
-namespace cai
-{
+namespace cai {
     template<typename T>
-    class Tensor
-    {
+    class Tensor {
     private:
-        T* data = nullptr;
-        T * grad = nullptr;
-
+        T *data = nullptr;
+        bool indexed = false;
         int dim;
         int offset;
         int *stride;
         int *shape;
         bool conjugate = true;
-        bool required_grad = false;
 
     public:
-        bool indexed = false;
-        Operation::Operator<T> * oper = nullptr;
-
         //생성자들
         Tensor();
         ~Tensor();
         Tensor(T v);
-        Tensor(std::initializer_list<int> sh, T val = 0);
-        Tensor(std::initializer_list<T> val, std::initializer_list<int> sh);
-        Tensor(std::vector<int> sh, T val = 0);
-        Tensor(std::vector<T> val, std::vector<int> sh);
-        Tensor(int dim, int *stride, int *shape, T val =0);
-        Tensor(int dim, int *stride, int *shape, T* data, int offset);
-        Tensor(const Tensor& other);
+        Tensor(const std::initializer_list<int> &sh, T val = 0);
+        Tensor(const std::initializer_list<T> &val, const std::initializer_list<int> &sh);
+        Tensor(const std::vector<int> &sh, T val = 0);
+        Tensor(const std::vector<T> &val, const std::vector<int> &sh);
+        Tensor(int dim, int *shape, T val = 0);
+        Tensor(int dim, int *stride, int *shape, T *data, int offset = 0);
+        Tensor(const Tensor &other);
 
         //set, get
         void set_data(T *data);
         void set_conj();
-        void set(Tensor &o);
+        void set(const Tensor &o);
         void set(T v);
         void set_grad();
 
-        int get_size();
+        int get_size() const;
 
-        T& item();
-        T& item(std::vector<int>& pos);
+        T &item() const;
+        T &item(const std::vector<int> &pos) const;
         template<typename... Ints>
-        T& item(Ints... b);
+        T &item(Ints... b) const;
 
-        Tensor get(std::vector<cai::Range>& pos);
+        Tensor get(const std::vector<cai::Range> &pos) const;
         template<typename... Ranges>
-        Tensor get(Ranges... b);
+        Tensor get(Ranges... b) const;
 
         template<typename... Ranges>
-        Tensor operator[](Ranges... b);
+        Tensor operator[](Ranges... b) const;
 
-        void nexti(std::vector<int>& v);
-        std::vector<int> initi();
+        void nexti(std::vector<int> &v) const;
+        std::vector<int> initi() const;
+
+        Tensor reshape(const std::vector<int>& resh) const;
 
         template<typename... Ints>
-        Tensor reshape(Ints... b);
-        Tensor reshape(std::vector<int> resh);
+        Tensor reshape(Ints... b) const;
 
-        Tensor copy();
+        Tensor copy() const;
 
-        int index(std::vector<int>& pos);
+        int index(const std::vector<int> &pos) const;
         template<typename... Ints>
-        int index(Ints... b);
+        int index(Ints... b) const;
 
         //출력
-        void print();
-        void print_all();
-        void print(std::ostream& o);
-        std::string toString();
-        std::string toString_(std::vector<int> pos);
+        void print() const;
+        void print_all() const;
+        void print(std::ostream &o) const;
+        std::string toString() const;
+        std::string toString_(std::vector<int> pos) const;
 
 
-        Tensor& operator=(Tensor &o);
-        Tensor& operator=(T v);
-        Tensor& operator+(Tensor &o);
-        Tensor& operator+(T v);
-        Tensor& operator+=(Tensor &o);
-        Tensor& operator+=(T v);
-        bool sameShape(Tensor &o);
+        friend std::ostream& operator<<( std::ostream& o, const Tensor& t){
+            t.print(o);
+            return o;
+        }
+
+        Tensor &operator=(const Tensor &o);
+        Tensor &operator=(T v);
+        Tensor operator+(const Tensor &o) const;
+
+        bool sameShape(const Tensor &o) const;
+
+        friend Tensor<T> zeros_like(const Tensor<T> &o);
+        template<typename T1>
+        friend Tensor<T1> ones_like(const Tensor<T1> &o);
+        template<typename T1, typename... Ints>
+        friend Tensor<T1> arange(Ints... v);
+        template<typename... Ints>
+        friend Tensor<double> rand(Ints... v);
+        template<typename... Ints>
+        friend Tensor<double> randn(Ints... v);
+        template<typename... Ints>
+        friend Tensor<int> randint(int low, int high, Ints... v);
     };
 
+    template<typename T1>
+    Tensor<T1> zeros_like(const Tensor<T1> &o) {
+        return Tensor<T1>(o.dim, o.shape, 0);
+    }
+    template<typename T1>
+    Tensor<T1> ones_like(const Tensor<T1> &o) {
+        return Tensor<T1>(o.dim, o.shape, 1);
+    }
+    template<typename T1, typename... Ints>
+    Tensor<T1> arange(Ints... v)  {
+        Tensor<T1> ret ({v...}, 0);
+        auto vec = ret.initi();
+        int num = ret.get_size();
+        for(int i=0; i<num; i++){
+            ret.nexti(vec);
+            ret.item(vec) = i;
+        }
+        return ret;
+    }
+    template<typename... Ints>
+    Tensor<double> rand(Ints... v)  {
+        Tensor<double> ret ({v...}, 0);
+        auto vec = ret.initi();
+        int num = ret.get_size();
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> dis(0, 1);
+        for(int i=0; i<num; i++){
+            ret.nexti(vec);
+            ret.item(vec) = dis(gen);
+        }
+        return ret;
+    }
+    template<typename... Ints>
+    Tensor<double> randn(Ints... v)  {
+        Tensor<double> ret ({v...}, 0);
+        auto vec = ret.initi();
+        int num = ret.get_size();
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::normal_distribution<double> dis(0, 1);
+        for(int i=0; i<num; i++){
+            ret.nexti(vec);
+            ret.item(vec) = dis(gen);
+        }
+        return ret;
+    }
+    template<typename... Ints>
+    Tensor<int> randint(int low, int high, Ints... v)  {
+        Tensor<int> ret ({v...}, 0);
+        auto vec = ret.initi();
+        int num = ret.get_size();
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<int> dis(low, high);
+        for(int i=0; i<num; i++){
+            ret.nexti(vec);
+            ret.item(vec) = dis(gen);
+        }
+        return ret;
+    }
 }
 
 /**** 사용할 함수 ****/
+
 
 
 
@@ -113,23 +185,10 @@ namespace func{
     }
 
     template<typename T>
-    std::vector<T> vec_(T a){
-        std::vector<T> ret = std::vector<T>();
-        ret.push_back(a);
-        return ret;
-    }
-
-    template<typename T, typename... Ts>
-    std::vector<T> vec_(T a, Ts... b){
-        std::vector<T> ret = vec_<T>(b...);
-        ret.push_back(a);
-        return ret;
-    }
-
-    template<typename T, typename... Ts>
-    std::vector<T> vec(T a, Ts... b){
-        std::vector<T> ret = vec_<T>(a, b...);
-        std::reverse(ret.begin(), ret.end());
+    T* newArray(std::vector<T> arr)
+    {
+        T* ret = new T[arr.size()];
+        for(int i=0; i<arr.size(); i++) ret[i] = arr[i];
         return ret;
     }
 }
@@ -170,11 +229,11 @@ cai::Tensor<T>::Tensor(T v)
 
 //사용자 용
 template<typename T>
-cai::Tensor<T>::Tensor(std::initializer_list<int> sh, T val)
+cai::Tensor<T>::Tensor(const std::initializer_list<int>& sh, T val)
 :Tensor(std::vector<int>(sh.begin(), sh.end()), val) {}
 
 template<typename T>
-cai::Tensor<T>::Tensor(std::initializer_list<T> val, std::initializer_list<int> sh)
+cai::Tensor<T>::Tensor(const std::initializer_list<T>& val, const std::initializer_list<int>& sh)
 :Tensor(std::vector<T>(val.begin(), val.end()), std::vector<int>(sh.begin(), sh.end())) {}
 
 
@@ -194,11 +253,15 @@ cai::Tensor<T>::Tensor(int dim, int *stride, int *shape, T* data, int offset)
 }
 
 template<typename T>
-cai::Tensor<T>::Tensor(int dim, int *stride, int *shape, T val){
+cai::Tensor<T>::Tensor(int dim, int *shape, T val){
     this->dim = dim;
     this->offset = 0;
-    this->stride = stride;
+    this->stride = new int[this->dim];
     this->shape = shape;
+    for(int i =this->dim-1 ; i >=0 ; i--) {
+        if(i==this->dim-1) stride[i] = 1;
+        else stride[i] = stride[i+1] * this->shape[i+1];
+    }
     conjugate = true;
     set_data(func::newArray<T>(get_size(), val));
 }
@@ -209,7 +272,7 @@ cai::Tensor<T>::Tensor(const Tensor &o)
         func::newArray(o.dim, o.shape),o.data, o.offset){}
 
 template<typename T>
-cai::Tensor<T>::Tensor(std::vector<int> sh, T val)
+cai::Tensor<T>::Tensor(const std::vector<int>& sh, T val)
 {
     int cnt = 0, num;
     dim  = sh.size();
@@ -217,7 +280,7 @@ cai::Tensor<T>::Tensor(std::vector<int> sh, T val)
     stride = new int[dim];
     offset = 0;
 
-    for(int & x : sh){
+    for(const int & x : sh){
         shape[cnt] = x;
         cnt++;
     }
@@ -231,14 +294,14 @@ cai::Tensor<T>::Tensor(std::vector<int> sh, T val)
 }
 
 template<typename T>
-cai::Tensor<T>::Tensor(std::vector<T> val, std::vector<int> sh)
+cai::Tensor<T>::Tensor(const std::vector<T>& val, const std::vector<int>& sh)
 :Tensor(sh)
 {
     int cnt = 0, num = get_size();
     if(num != val.size()){
         throw std::range_error( "you can't make " + std::to_string(sh.size()) + " to " + std::to_string(num) +  "\n");
     }
-    for(T & x : val){
+    for(const T & x : val){
         data[cnt] = x;
         cnt++;
     }
@@ -252,7 +315,7 @@ cai::Tensor<T>::Tensor(std::vector<T> val, std::vector<int> sh)
 
 
 template<typename T>
-cai::Tensor<T>& cai::Tensor<T>::operator=(cai::Tensor<T> &o) {
+cai::Tensor<T>& cai::Tensor<T>::operator=(const cai::Tensor<T> &o) {
     if(!indexed){
         dim = o.dim;
         shape = func::newArray(dim, o.shape);
@@ -284,12 +347,24 @@ cai::Tensor<T>& cai::Tensor<T>::operator=(T val) {
 }
 
 template<typename T>
-bool cai::Tensor<T>::sameShape(Tensor<T> &o) {
+bool cai::Tensor<T>::sameShape(const Tensor<T> &o) const{
     if( dim!=o.dim ) return false;
     for(int i=0; i<dim; i++) if(shape[i]!=o.shape[i]) return false;
     return true;
 }
 
+template<typename T>
+cai::Tensor<T> cai::Tensor<T>::operator+(const cai::Tensor<T> &o) const {
+    if(!sameShape(o)) throw std::length_error("the shape is not equal");
+    Tensor<T> ret = copy();
+    std::vector<int> v = initi();
+    int n = get_size();
+    while(n--){
+        nexti(v);
+        ret.item(v) = item(v) + o.item(v);
+    }
+    return ret;
+}
 
 
 //==========================================================================
@@ -321,7 +396,7 @@ void cai::Tensor<T>::set_conj() {
 }
 
 template<typename T>
-void cai::Tensor<T>::set(Tensor<T> &o)
+void cai::Tensor<T>::set(const Tensor<T> &o)
 {
     if(!sameShape(o)) throw std::length_error("the shape is not equal");
     std::vector<int> v = initi();
@@ -343,20 +418,17 @@ void cai::Tensor<T>::set(T val)
     }
 }
 
-
-
 template<typename  T>
-int cai::Tensor<T>::get_size() {
+int cai::Tensor<T>::get_size() const{
     int ret = 1;
     for(int i=0; i<dim;i++)
         ret *= shape[i];
     return ret;
 }
 
-
 //item
 template<typename T>
-T& cai::Tensor<T>::item(){
+T& cai::Tensor<T>::item()const{
     if(dim!=0){
         throw std::domain_error("Can't get the item if dimension isn't 0");
     }
@@ -364,22 +436,22 @@ T& cai::Tensor<T>::item(){
 }
 
 template<typename T>
-T& cai::Tensor<T>::item(std::vector<int>& pos){
+T& cai::Tensor<T>::item(const std::vector<int>& pos) const{
     return data[index(pos)];
 }
 
 template<typename T>
 template<typename... Ints>
-T& cai::Tensor<T>::item(Ints... b){
-    auto a = func::vec(b...);
-    return item(a);
+T& cai::Tensor<T>::item(Ints... b)const{
+    std::vector<int> idx{b...};
+    return item(idx);
 }
 
 
 
 //index
 template<typename T>
-int cai::Tensor<T>::index(std::vector<int>& pos){
+int cai::Tensor<T>::index(const std::vector<int>& pos) const{
     int idx = offset;
     if(pos.size() != dim){
         throw std::domain_error("there isn't index for indicator which dimension isn't equal to tensor\n"
@@ -396,13 +468,13 @@ int cai::Tensor<T>::index(std::vector<int>& pos){
 
 template<typename T>
 template<typename... Ints>
-int cai::Tensor<T>::index(Ints... b){
-    auto &a = func::vec(b...);
-    return index(a);
+int cai::Tensor<T>::index(Ints... b) const{
+    std::vector<int> idx{b...};
+    return index(idx);
 }
 
 template<typename T>
-void cai::Tensor<T>::nexti(std::vector<int>& v){
+void cai::Tensor<T>::nexti(std::vector<int>& v) const{
     if(dim>=1) v[dim-1] ++;
     int n = dim-1;
     while(n>=1){
@@ -414,8 +486,8 @@ void cai::Tensor<T>::nexti(std::vector<int>& v){
 }
 
 template<typename T>
-std::vector<int> cai::Tensor<T>::initi(){
-    std::vector<int> ret = std::vector<int>(dim);
+std::vector<int> cai::Tensor<T>::initi() const{
+    std::vector<int> ret(dim);
     if(dim>=1) ret[dim-1] = -1;
     return ret;
 }
@@ -423,13 +495,13 @@ std::vector<int> cai::Tensor<T>::initi(){
 
 //get
 template<typename T>
-cai::Tensor<T> cai::Tensor<T>::get(std::vector<Range>& pos){
+cai::Tensor<T> cai::Tensor<T>::get(const std::vector<Range>& pos) const{
     if(pos.size() > dim){
         throw std::range_error("index is over " + std::to_string(dim) + "\n");
     }
 
     int newDim = dim;
-    for(Range & p : pos){
+    for(const Range & p : pos){
         if(p.v) newDim--;
     }
 
@@ -442,8 +514,7 @@ cai::Tensor<T> cai::Tensor<T>::get(std::vector<Range>& pos){
         if(i<pos.size()){
             newOffset += pos[i].s * stride[i];
             if(!pos[i].v){
-                if(pos[i].e == -1) pos[i].e = shape[i];
-                newShape[cnt] = pos[i].e - pos[i].s;
+                newShape[cnt] = (pos[i].e == -1  ? shape[i]:pos[i].e) - pos[i].s;
                 newStride[cnt] = stride[i];
                 cnt++;
             }
@@ -461,49 +532,35 @@ cai::Tensor<T> cai::Tensor<T>::get(std::vector<Range>& pos){
 
 template<typename T>
 template<typename... Ranges>
-cai::Tensor<T> cai::Tensor<T>::get(Ranges... b){
-    auto a = func::vec<cai::Range>(b...);
-    return get(a);
+cai::Tensor<T> cai::Tensor<T>::get(Ranges... b)const{
+    return get(std::vector<cai::Range>{b...});
 }
 
 template<typename T>
 template<typename... Ranges>
-cai::Tensor<T> cai::Tensor<T>::operator[](Ranges... b) {
+cai::Tensor<T> cai::Tensor<T>::operator[](Ranges... b) const{
     cai::Tensor<T> ret =  get(b...);
     ret.indexed = true;
     return ret;
 }
 
-//set
-template<typename T>
-void cai::Tensor<T>::set_grad(){
-    required_grad = true;
-    grad = new T[get_size()];
-}
 
 //reshape
 template<typename T>
-template<typename... Ints>
-cai::Tensor<T> cai::Tensor<T>::reshape(Ints... b){
-    auto & a = func::vec(b...);
-    return reshape(a);
-}
-
-template<typename T>
-cai::Tensor<T> cai::Tensor<T>::reshape(std::vector<int> resh){
-    if(conjugate == false){
+cai::Tensor<T> cai::Tensor<T>::reshape(const std::vector<int>& resh) const{
+    if(!conjugate){
         throw std::domain_error( "you can't reshape, the tensor is not conjugate \n");
     }
 
     int num = 1;
-    for(int &x : resh) num *= x;
+    for(const int &x : resh) num *= x;
 
     if(get_size() != num){
         throw std::range_error( "you can't reshape, the number of item is different \n");
     }
 
     int newDim = resh.size();
-    int* newShape = resh.data();
+    int* newShape = (func::newArray(resh));
     int* newStride = new int[newDim];
     int cnt = 1;
     for(int i=newDim-1; i>=0; i--){
@@ -511,14 +568,20 @@ cai::Tensor<T> cai::Tensor<T>::reshape(std::vector<int> resh){
         newStride[i] = cnt;
     }
 
-    Tensor<T> ret = Tensor(newDim , newShape, newStride);
-    ret.set_data(data);
-    ret.offset = 0;
+    Tensor<T> ret(newDim , newStride, newShape, data);
     return ret;
 }
 
 template<typename T>
-cai::Tensor<T> cai::Tensor<T>::copy(){
+template<typename... Ints>
+cai::Tensor<T> cai::Tensor<T>::reshape(Ints... b) const{
+    std::vector<int> idx{b...};
+    return reshape(idx);
+}
+
+
+template<typename T>
+cai::Tensor<T> cai::Tensor<T>::copy() const{
     int newDim = dim;
     int* newShape = func::newArray(dim, shape);
     int* newStride = new int[newDim];
@@ -534,7 +597,7 @@ cai::Tensor<T> cai::Tensor<T>::copy(){
         nexti(pos);
         newData[i] = item(pos);
     }
-    Tensor<T> ret = Tensor(newDim , newStride, newShape,newData, 0);
+    Tensor<T> ret(newDim , newStride, newShape,newData, 0);
     return ret;
 }
 
@@ -547,18 +610,12 @@ cai::Tensor<T> cai::Tensor<T>::copy(){
 
 
 template<typename T>
-std::ostream& operator<<(std::ostream& o, cai::Tensor<T>& t){
-    t.print(o);
-    return o;
-}
-
-template<typename T>
-void cai::Tensor<T>::print(){
+void cai::Tensor<T>::print() const {
     print(std::cout);
 }
 
 template<typename T>
-void cai::Tensor<T>::print_all(){
+void cai::Tensor<T>::print_all()const {
     std::cout << "dim : " <<  dim << std::endl;
     std::cout << "shape : (" ;
     for(int i=0; i<dim; i++){
@@ -576,12 +633,12 @@ void cai::Tensor<T>::print_all(){
 }
 
 template<typename T>
-void cai::Tensor<T>::print(std::ostream &o) {
+void cai::Tensor<T>::print(std::ostream &o) const {
     o<<toString();
 }
 
 template<typename T>
-std::string cai::Tensor<T>::toString_(std::vector<int> pos) {
+std::string cai::Tensor<T>::toString_(std::vector<int> pos) const {
     if(pos.size() == dim){
         return std::to_string(item(pos));
     }
@@ -604,7 +661,7 @@ std::string cai::Tensor<T>::toString_(std::vector<int> pos) {
 }
 
 template<typename T>
-std::string cai::Tensor<T>::toString() {
+std::string cai::Tensor<T>::toString() const {
     std::vector<int> temp;
     return toString_(temp);
 }

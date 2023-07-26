@@ -9,17 +9,18 @@ namespace cai
     private:
         static std::map<intptr_t , int> rfcnt;
         static int cnt;
+        static bool chk;
 
     public:
         template<class T>
-        static int getCnt(T* adrs){
+        static int getCnt(const T* adrs) {
             intptr_t num = (intptr_t)adrs;
             if(rfcnt.find(num) == rfcnt.end()) return 0;
             else return rfcnt[num];
         }
 
         template<class T>
-        static void ref(T* adrs){
+        static void ref(const T* adrs){
             intptr_t num = (intptr_t)adrs;
             if(rfcnt.find(num) == rfcnt.end())  {
                 rfcnt[num] = 1;
@@ -29,7 +30,7 @@ namespace cai
         }
 
         template<class T>
-        static void unref(T* adrs){
+        static void unref(const T* adrs){
             intptr_t num = (intptr_t)adrs;
             if(rfcnt.find(num) == rfcnt.end()){
                 throw std::domain_error("there is no data which pointer is " + std::to_string(num));
@@ -38,16 +39,21 @@ namespace cai
                 delete[] adrs;
                 cnt--;
                 rfcnt.erase(num);
-                //std::cout << cnt << " storage left" << std::endl;
+                if(chk) std::cout << cnt << " storage left" << std::endl;
             }
             else {
                 rfcnt[num] --;
             }
         }
+
+        static void set_chk(){
+            chk = true;
+        }
     };
 
     std::map<intptr_t, int> Processor::rfcnt = std::map<intptr_t, int>();
     int Processor::cnt = 0;
+    bool Processor::chk = false;
 }
 
 #endif //CLIONPROJECT_PROCESSOR_H
