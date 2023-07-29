@@ -12,7 +12,8 @@ namespace cai
     template<typename T>
     class Tensor;
     namespace Operation{}
-    class Processor;
+    template<typename T>
+    class variable;
     class Range;
 }
 
