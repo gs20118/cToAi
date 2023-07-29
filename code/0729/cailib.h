@@ -1,20 +1,18 @@
-#ifndef CLIONPROJECT_CAILIB_H
-#define CLIONPROJECT_CAILIB_H
-#include <initializer_list>
-#include <string>
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <map>
+//
+// Created by 최정환 on 2023-07-29.
+//
+
+#ifndef NEWPROJECTS_CAILIB_H
+#define NEWPROJECTS_CAILIB_H
 
 namespace cai
 {
     template<typename T>
     class Tensor;
-    namespace Operation{}
     template<typename T>
-    class variable;
+    class Operator;
     class Range;
 }
 
-#endif //CLIONPROJECT_CAILIB_H
+
+#endif //NEWPROJECTS_CAILIB_H

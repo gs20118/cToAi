@@ -1,39 +1,38 @@
-#ifndef CLIONPROJECT_OPERATOR_H
-#define CLIONPROJECT_OPERATOR_H
+//
+// Created by 최정환 on 2023-07-29.
+//
+
+#ifndef NEWPROJECTS_OPERATOR_H
+#define NEWPROJECTS_OPERATOR_H
+
 #include "cailib.h"
-#include "variable.h"
+#include <vector>
 
-/*
-namespace cai::Operation
+namespace cai
 {
-    template<typename To, typename... Froms>
+    template<typename T>
     class Operator{
-        std::tuple<Froms...> inputs;
-        To output;
-
-        To operator()(Froms... v){
-            inputs = {v...};
-            output = forward(v...);
+        std::vector<Tensor<T>> inputs;
+        Tensor<T> output;
+        template<typename... Inputs>
+        Tensor<T> operator()(Inputs... inputs){
+            this->inputs = std::vector<Tensor<T>>{inputs...};
+            output = forward(inputs...);
             return output;
         }
-        virtual To forward(Froms... v);
-        virtual std::tuple<Froms...> backward(To dLdx);
+        template<typename... Inputs>
+        Tensor<T> forward(Inputs... inputs);
+        virtual std::vector<Tensor<T>> backward(Tensor<T>&);
     };
 
     template<typename T>
-    class Add : Operator<Variable<T>, Variable<T>, Variable<T>>
-    {
-        Variable<T> forward(Variable<T> a, Variable<T> b){
-            Tensor<T> o = a.body.copy();
-            o.foreach([&a, &b](Tensor<T>& this_, std::vector<int> pos){
-                this_.item(pos) = a.body.item(pos) + b.body.item(pos);
-            });
-            return Variable<T>(o);
-        }
-        std::tuple<Variable<T>, Variable<T>> backward(variable<T> dLdx){
-            return std::tuple<Variable<T>, Variable<T>>{dLdx, dLdx};
-        }
-    };
+    class Add : Operator<T>{};
+
+    template<typename T>
+    class Sub;
+
+    template<typename T>
+    class Mult;
 }
-*/
-#endif //CLIONPROJECT_OPERATOR_H
+
+#endif //NEWPROJECTS_OPERATOR_H

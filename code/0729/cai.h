@@ -1,8 +1,12 @@
-#ifndef CLIONPROJECT_CAI_H
-#define CLIONPROJECT_CAI_H
+//
+// Created by 최정환 on 2023-07-29.
+//
+
+#ifndef NEWPROJECTS_CAI_H
+#define NEWPROJECTS_CAI_H
 
 #include "cailib.h"
-#include "operator.h"
+#include "operators.h"
 #include "tensor.h"
 
-#endif //CLIONPROJECT_CAI_H
+#endif //NEWPROJECTS_CAI_H

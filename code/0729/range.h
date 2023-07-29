@@ -1,7 +1,11 @@
-#ifndef CLIONPROJECT_RANGE_H
-#define CLIONPROJECT_RANGE_H
-#include "cailib.h"
+//
+// Created by 최정환 on 2023-07-29.
+//
 
+#ifndef NEWPROJECTS_RANGE_H
+#define NEWPROJECTS_RANGE_H
+#include <iostream>
+#include "cailib.h"
 #define r(a, b) cai::Range(a, b)
 
 namespace cai{
@@ -31,4 +35,5 @@ std::ostream& operator<<(std::ostream& o, const cai::Range& r) {
     return o;
 }
 
-#endif //CLIONPROJECT_RANGE_H
+
+#endif //NEWPROJECTS_RANGE_H

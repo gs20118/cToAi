@@ -1,9 +1,8 @@
 #include <iostream>
+#include "cai.h"
 
-using namespace std;
+int main() {
+    cai::Tensor<double> X = cai::randn(3, 4, 2);
 
-int main()
-{
-    cout << "Hello world!" << endl;
     return 0;
 }
