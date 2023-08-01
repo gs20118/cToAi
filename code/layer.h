@@ -22,18 +22,23 @@ namespace cai{
         virtual std::vector<std::tuple<double *, double *, int>> parameters(){
             return std::vector<std::tuple<double *, double *, int>>();
         }
+        virtual void print_grad(){}
     };
 
     class Linear:public Layer{
     public:
         Tensor<double> W, b;
-        Linear(int input_dim, int output_dim){
-            W = rand(output_dim, input_dim);
-            b = rand(output_dim);
+        Linear(int input_dim, int output_dim) {
+            W = randn(output_dim, input_dim).set_grad();
+            b = randn(output_dim, 1).set_grad();
         }
 
         Tensor<double> forward(const Tensor<double> &a){
             return W.cross(a) + b;
+        }
+
+        void print_grad(){
+            std::cout << b << std::endl << b.grad() << std::endl;
         }
 
         void zero_grad(){

@@ -566,7 +566,7 @@ namespace cai {
             }
         }
 
-        Tensor & operator=(const Tensor &o) {
+        Tensor& operator=(const Tensor &o) {
             if (indexed || graded){
                 set(o);
             }
@@ -581,6 +581,7 @@ namespace cai {
                 requires_grad = o.requires_grad;
                 grad_func = o.grad_func;
             }
+            return *this;
         }
         Tensor &operator=(T v){
             if (indexed){
