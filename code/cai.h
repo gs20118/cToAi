@@ -2,7 +2,13 @@
 #define CLIONPROJECT_CAI_H
 
 #include "cailib.h"
-#include "operator.h"
+#include "operators.h"
 #include "tensor.h"
+#include "range.h"
+#include "layer.h"
+#include "network.h"
+#include "optimizer.h"
+
+
 
 #endif //CLIONPROJECT_CAI_H

@@ -1,7 +1,7 @@
 #ifndef CLIONPROJECT_RANGE_H
 #define CLIONPROJECT_RANGE_H
+#include <iostream>
 #include "cailib.h"
-
 #define r(a, b) cai::Range(a, b)
 
 namespace cai{

@@ -11,10 +11,19 @@ namespace cai
 {
     template<typename T>
     class Tensor;
-    namespace Operation{}
     template<typename T>
-    class variable;
+    class Operator;
     class Range;
+
+    class Layer;
+    class Network;
+    class Optimizer;
+
+    bool isGrad = true;
+    void setGrad(bool grad){
+        isGrad = grad;
+    }
+    
 }
 
 #endif //CLIONPROJECT_CAILIB_H
