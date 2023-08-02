@@ -74,17 +74,26 @@ namespace cai {
     private:
         bool indexed = false;
         bool graded = false;
-        int dim{};
-        int offset{};
-        int *stride{};
-        int *shape{};
+        int dim;
+        int offset;
+        int *stride;
+        int *shape;
         bool conjugate = true;
-
     public:
         std::shared_ptr<T> data = nullptr;
         bool requires_grad = false;
         std::shared_ptr<T> graddata = nullptr;
         std::shared_ptr<Operator<T>> grad_func = nullptr;
+
+        int *get_stride() const{
+            return stride;
+        }
+        int *get_shape() const {
+            return stride;
+        }
+        int get_dim() const{
+            return dim;
+        }
 
         //생성자들
         Tensor(){
@@ -222,6 +231,50 @@ namespace cai {
                 item(v) = o.item(v);
             }
         }
+        void add_(const Tensor &o) const {
+            if(!sameShape(o)) throw std::length_error("the shape is not equal");
+            //std::cout << "=================================" << std::endl;
+            std::vector<int> v = initi();
+            int num = get_size();
+            for(int i=0; i<num; i++) {
+                nexti(v);
+                int idx = index(v);
+                int oidx = o.index(v);
+                data.get()[idx] += o.data.get()[oidx];
+                //item(v) += o.item(v);
+                //o.print_all();
+            }
+        }
+        void sub_(const Tensor &o) const {
+            if(!sameShape(o)) throw std::length_error("the shape is not equal");
+            std::vector<int> v = initi();
+            int num = get_size();
+            for(int i=0; i<num; i++) {
+                nexti(v);
+                item(v) -= o.item(v);
+            }
+        }
+        void mult_(const Tensor &o) const {
+            if(!sameShape(o)) throw std::length_error("the shape is not equal");
+            std::vector<int> v = initi();
+            int num = get_size();
+            for(int i=0; i<num; i++) {
+                nexti(v);
+                item(v) *= o.item(v);
+            }
+        }
+        void div_(const Tensor &o) const {
+            if(!sameShape(o)) throw std::length_error("the shape is not equal");
+            std::vector<int> v = initi();
+            int num = get_size();
+            for(int i=0; i<num; i++) {
+                nexti(v);
+                item(v) /= o.item(v);
+            }
+        }
+
+
+
         void set(T val){
             std::vector<int> v = initi();
             int num = get_size();
@@ -563,6 +616,7 @@ namespace cai {
                     ret.shape[i] = resh[i];
                 }
             }
+            ret.set_conj();
             return ret;
         }
         Tensor squeeze() const {
@@ -577,8 +631,7 @@ namespace cai {
                     cnt ++;
                 }
             }
-            Tensor<T> ret = Tensor<T>(newDim, newShape, newShape, data, offset, graddata, grad_func);
-            return ret;
+            return Tensor<T>(newDim, newStride, newShape, data, offset, graddata, grad_func);
         }
         Tensor unsqueeze(int axis=0) const {
             if(axis == -1) axis = dim;
@@ -596,8 +649,8 @@ namespace cai {
                     newStride[i] = 0;
                 }
             }
-            Tensor<T> ret = Tensor<T>(newDim, newStride, newShape, data, offset, graddata, grad_func);
-            return ret;
+
+            return Tensor<T>(newDim, newStride, newShape, data, offset, graddata, grad_func);
         }
 
         void zero_grad() const{
@@ -682,16 +735,19 @@ namespace cai {
 
         Tensor operator+(const Tensor &o) const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Add<T>(), [](Operator<T>* a){delete a;});
-            if(sameShape(o)){return (*op)(*this, o);}
+            if(sameShape(o)){
+                return (*op)(*this, o);}
             Tensor<T> a = *this;
             Tensor<T> b= o;
             broadcast(a, b);
             return (*op)(a, b);
         }
         void operator+=(const Tensor &o) {
-            Tensor<double> a = (*this);
-            if (indexed || !isGrad) set(a+o);
+            if (indexed || !isGrad) {
+                add_(o);
+            }
             else{
+                Tensor<double> a = (*this);
                 this->set_ref(a+o);
             }
         }
@@ -704,9 +760,9 @@ namespace cai {
             return (*op)(a, b);
         }
         void operator-=(const Tensor &o) {
-            Tensor<double> a = (*this);
-            if (indexed || !isGrad) set(a - o);
+            if (indexed || !isGrad) sub_(o);
             else{
+                Tensor<double> a = (*this);
                 this->set_ref(a - o);
             }
         }
@@ -719,9 +775,9 @@ namespace cai {
             return (*op)(a, b);
         }
         void operator*=(const Tensor &o) {
-            Tensor<double> a = (*this);
-            if (indexed || !isGrad) set(a*o);
+            if (indexed || !isGrad) mult_(o);
             else{
+                Tensor<double> a = (*this);
                 this->set_ref(a*o);
             }
         }
@@ -734,20 +790,18 @@ namespace cai {
             return (*op)(a, b);
         }
         void operator/=(const Tensor &o) {
-            Tensor<double> a = (*this);
-            if (indexed || !isGrad) set(a/o);
+            if (indexed || !isGrad) div_(o);
             else{
+                Tensor<double> a = (*this);
                 this->set_ref(a/o);
             }
         }
         Tensor cross(const Tensor &o) const {
-            if((dim==0 || o.dim==0) || (dim==1 && o.dim ==1)){
+            if((dim<=1 || o.dim<=1)){
                 throw std::logic_error("Can't cross if dimension is " + std::to_string(dim) + " " + std::to_string(o.dim));
             }
             Tensor<T> a = *this;
             Tensor<T> b= o;
-            if(a.dim == 1) {a.unsqueeze(0); }
-            if(b.dim == 1){ b.unsqueeze(-1);}
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Cross<T>(), [](Operator<T>* a){delete a;});
             return (*op)(a, b);
         }
@@ -804,7 +858,6 @@ namespace cai {
         friend Tensor<double> randn(Ints... v);
         template<typename... Ints>
         friend Tensor<int> randint(int low, int high, Ints... v);
-        friend Operator<T>;
         friend Cross<T>;
         //==============================================
 

@@ -5,7 +5,7 @@ using namespace cai;
 class SimpleNet : public Network{
 public:
     void init() override{
-        set("linear1", new Linear(20, 20));
+        set("linear1", new Linear(30, 20));
     }
 
     Tensor<double> forward(Tensor<double> &a) override{
@@ -16,8 +16,8 @@ public:
 };
 
 void main_(){
-    Tensor<double> x_t = rand(20, 1);
-    Tensor<double> y_t = randn(20, 1);
+    Tensor<double> x_t = rand(100, 30);
+    Tensor<double> y_t = randn(100, 20);
     Tensor<double> test;
 
     SimpleNet simplenet = SimpleNet();
@@ -26,28 +26,33 @@ void main_(){
     optimizer.set(simplenet.parameters());
     optimizer.init();
 
-    for(int Iter = 0; Iter < 1000; Iter++){
+    //for(int Iter = 0; Iter < 1000; Iter++){
         Tensor<double> y_r = simplenet(x_t);
         Tensor<double> Z = (y_r - y_t).square().mean();
         Z.backward();
         optimizer.optim();
         simplenet.zero_grad();
-        std::cout << Iter << ": " << Z << std::endl;
-    }
+        //std::cout << Iter << ": " << Z << std::endl;
+    //}
 
 }
 
 void main_2(){
-    Tensor<double> x = arange<double>(2, 2).set_grad();
+    Tensor<double> x = rand(5, 5).set_grad();
+    Tensor<double> y = arange<double>(1, 5).set_grad();
 
-    Tensor<double> y = arange<double>(2).set_grad();
+    auto resh = x.broadcast_(y);
+    auto a = x.expand_(resh);
+    auto b = y.expand_(resh);
 
-    std::cout << x + y << std::endl;
+    auto z = a+b;
+    auto w = z.sum();
 
+    w.backward();
+    a.print_all();
     std::cout << x.grad() << std::endl;
-    std::cout << y.grad() << std::endl;
-
 }
+
 
 int main() {
     clock_t start, finish;

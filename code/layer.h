@@ -29,16 +29,19 @@ namespace cai{
     public:
         Tensor<double> W, b;
         Linear(int input_dim, int output_dim) {
-            W = randn(output_dim, input_dim).set_grad();
-            b = randn(output_dim, 1).set_grad();
+            W = randn(input_dim, output_dim).set_grad();
+            b = randn(1, output_dim).set_grad();
         }
 
         Tensor<double> forward(const Tensor<double> &a){
-            return W.cross(a) + b;
+            if(a.get_dim() == 1){
+                a.unsqueeze();
+            }
+            return a.cross(W) + b;
         }
 
         void print_grad(){
-            std::cout << b << std::endl << b.grad() << std::endl;
+            std::cout << W.grad() << std::endl << b.grad() << std::endl;
         }
 
         void zero_grad(){
