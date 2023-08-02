@@ -536,39 +536,35 @@ namespace cai {
             return ret;
         }
 
-        std::vector<int> broadcast(const Tensor<T> & o) const{
-            int n = max(dim, o.mdim);
+        std::vector<int> broadcast_(const Tensor<T> & o) const{
+            int n = std::max(dim, o.dim);
             std::vector<int> ret(n);
             for(int i=0; i<n; i++){
                 if(i+dim < n) ret[i] = o.shape[i];
                 else if(i+o.dim < n) ret[i] = shape[i];
-                else {
-                    if(shape[i] != 1 and o.shape[i] != 1) throw std::logic_error("can't broadcast if shape isn't 1");
-                    ret[i] = std::max(shape[i], o.shape[i]);
+                else{
+                    int ia = i + dim - n;
+                    int ib = i + o.dim - n;
+                    if((shape[ia] != o.shape[ib]) and (shape[ia] != 1 and o.shape[ib] != 1)) throw std::logic_error("can't broadcast if shape isn't 1");
+                    ret[i] = std::max(shape[ia], o.shape[ib]);
                 }
             }
             return ret;
         }
-
-        Tensor expand_(std::vector<int> resh) const {
+        Tensor expand_(const std::vector<int>& resh) const {
             Tensor<T> ret = *this;
-            if(dim < resh.size()){
-                std::vector<int> newshape(resh.size());
-                for(int i=0; i<newshape.size(); i++){
-                    if(i < newshape.size()-dim) newshape[i] = 1;
-                    else newshape[i] = shape[i + dim - newshape.size()];
-                }
-                ret = reshape(newshape);
+            while(ret.dim < resh.size()){
+                ret = ret.unsqueeze();
             }
             for(int i=0; i<ret.dim; i++){
                 if(ret.shape[i] != resh[i]){
                     if(ret.shape[i]!=1) throw std::logic_error("can't expand if shape isn't 1");
                     ret.stride[i] = 0;
+                    ret.shape[i] = resh[i];
                 }
             }
             return ret;
         }
-
         Tensor squeeze() const {
             int newDim = dim;
             for(int i=0 ; i<dim; i++) if(shape[i] == 1) newDim --;
@@ -582,6 +578,25 @@ namespace cai {
                 }
             }
             Tensor<T> ret = Tensor<T>(newDim, newShape, newShape, data, offset, graddata, grad_func);
+            return ret;
+        }
+        Tensor unsqueeze(int axis=0) const {
+            if(axis == -1) axis = dim;
+            int newDim = dim + 1;
+            int * newShape = new int[newDim], *newStride = new int[newDim] ;
+            int cnt = 0;
+            for(int i=0; i<newDim; i++){
+                if(i!=axis){
+                    newShape[i] = shape[cnt];
+                    newStride[i] = stride[cnt];
+                    cnt ++;
+                }
+                else {
+                    newShape[i] = 1;
+                    newStride[i] = 0;
+                }
+            }
+            Tensor<T> ret = Tensor<T>(newDim, newStride, newShape, data, offset, graddata, grad_func);
             return ret;
         }
 
@@ -616,7 +631,7 @@ namespace cai {
         }
 
         Tensor& operator=(const Tensor &o) {
-            if (indexed || graded || !isGrad){
+            if (indexed || graded){
                 set(o);
             }
             else{
@@ -647,12 +662,10 @@ namespace cai {
         }
         bool sameShape(const Tensor &o) const{
             if(dim != o.dim){
-                throw std::domain_error("dimension isn't same");
                 return false;
             }
             for(int i=0; i<dim; i++){
                 if(shape[i] != o.shape[i]){
-                    throw std::domain_error("shape isn't same");
                     return false;
                 }
             }
@@ -669,7 +682,11 @@ namespace cai {
 
         Tensor operator+(const Tensor &o) const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Add<T>(), [](Operator<T>* a){delete a;});
-            return (*op)(*this, o);
+            if(sameShape(o)){return (*op)(*this, o);}
+            Tensor<T> a = *this;
+            Tensor<T> b= o;
+            broadcast(a, b);
+            return (*op)(a, b);
         }
         void operator+=(const Tensor &o) {
             Tensor<double> a = (*this);
@@ -680,7 +697,11 @@ namespace cai {
         }
         Tensor operator-(const Tensor &o) const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Sub<T>(), [](Operator<T>* a){delete a;});
-            return (*op)(*this, o);
+            if(sameShape(o)){return (*op)(*this, o);}
+            Tensor<T> a = *this;
+            Tensor<T> b= o;
+            broadcast(a, b);
+            return (*op)(a, b);
         }
         void operator-=(const Tensor &o) {
             Tensor<double> a = (*this);
@@ -691,7 +712,11 @@ namespace cai {
         }
         Tensor operator*(const Tensor &o) const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Mult<T>(), [](Operator<T>* a){delete a;});
-            return (*op)(*this, o);
+            if(sameShape(o)){return (*op)(*this, o);}
+            Tensor<T> a = *this;
+            Tensor<T> b= o;
+            broadcast(a, b);
+            return (*op)(a, b);
         }
         void operator*=(const Tensor &o) {
             Tensor<double> a = (*this);
@@ -702,7 +727,11 @@ namespace cai {
         }
         Tensor operator/(const Tensor &o) const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Div<T>(), [](Operator<T>* a){delete a;});
-            return (*op)(*this, o);
+            if(sameShape(o)){return (*op)(*this, o);}
+            Tensor<T> a = *this;
+            Tensor<T> b= o;
+            broadcast(a, b);
+            return (*op)(a, b);
         }
         void operator/=(const Tensor &o) {
             Tensor<double> a = (*this);
@@ -712,8 +741,15 @@ namespace cai {
             }
         }
         Tensor cross(const Tensor &o) const {
+            if((dim==0 || o.dim==0) || (dim==1 && o.dim ==1)){
+                throw std::logic_error("Can't cross if dimension is " + std::to_string(dim) + " " + std::to_string(o.dim));
+            }
+            Tensor<T> a = *this;
+            Tensor<T> b= o;
+            if(a.dim == 1) {a.unsqueeze(0); }
+            if(b.dim == 1){ b.unsqueeze(-1);}
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Cross<T>(), [](Operator<T>* a){delete a;});
-            return (*op)(*this, o);
+            return (*op)(a, b);
         }
         Tensor sum() const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Sum<T>(), [](Operator<T>* a){delete a;});
@@ -729,6 +765,21 @@ namespace cai {
         }
         Tensor exp() const {
             std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Exp<T>(), [](Operator<T>* a){delete a;});
+            return (*op)(*this);
+        }
+        Tensor normal() const {
+            std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Normal<T>(), [](Operator<T>* a){delete a;});
+            return (*op)(*this);
+        }
+        Tensor soft_max() const {
+            return (this->exp().normal());
+        }
+        Tensor max() const {
+            std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Max<T>(), [](Operator<T>* a){delete a;});
+            return (*op)(*this);
+        }
+        Tensor min() const {
+            std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Min<T>(), [](Operator<T>* a){delete a;});
             return (*op)(*this);
         }
         Tensor log() const {
@@ -818,6 +869,15 @@ namespace cai {
             ret.item(vec) = dis(gen);
         }
         return ret;
+    }
+
+    template<typename T>
+    void broadcast(Tensor<T> &a, Tensor<T> &b){
+        if(!a.sameShape(b)){
+            auto resh = a.broadcast_(b);
+            a = a.expand_(resh);
+            b = b.expand_(resh);
+        }
     }
 }
 

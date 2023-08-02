@@ -71,19 +71,78 @@ namespace cai{
     template<typename T>
     class Sum : public Operator<T>{
         std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
-            std::vector<Tensor<T>> &vec = Operator<T>::inputs;
-            Tensor<T> first = vec[0].zero();
-            first.set(dLdx.item());
-            return std::vector<Tensor<T>> {first};
+            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
+            Tensor<T> gten0 = ten[0].zero();
+            gten0.set(dLdx.item());
+            return std::vector<Tensor<T>> {gten0};
         }
         Tensor<T> forward(const std::vector<Tensor<T>> &ten){
             Tensor<T> o = Tensor<T>(0);
             int num = ten[0].get_size();
-            auto vec = ten[0].initi();
+            auto pos = ten[0].initi();
             while(num--){
-                ten[0].nexti(vec);
-                o.set(o.item() + ten[0].item(vec));
+                ten[0].nexti(pos);
+                o.set(o.item() + ten[0].item(pos));
             }
+            if(cai::isGrad && (ten[0].requires_grad)){
+                o.set_grad();
+                o.grad_func = Operator<T>::shared_from_this();
+            }
+            return o;
+        }
+    };
+
+    template<typename T>
+    class Max : public Operator<T>{
+        std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
+            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
+            Tensor<T> &oten = Operator<T>::output;
+            Tensor<T> gten0 = ten[0].zero();
+            gten0.foreach([&ten, &oten, &dLdx](Tensor<T> &this_, std::vector<int> &pos){
+                this_.item(pos) = (oten.item() == ten[0].item(pos) ? dLdx.item() : 0);
+            });
+            return std::vector<Tensor<T>> {gten0};
+        }
+        Tensor<T> forward(const std::vector<Tensor<T>> &ten){
+            Tensor<T> o = Tensor<T>(0);
+            int num = ten[0].get_size()-1;
+            auto pos = ten[0].initi();
+            ten[0].nexti(pos);
+            T val = ten[0].item(pos);
+            while(num--){
+                ten[0].nexti(pos);
+                val = (std::max(val ,ten[0].item(pos)));
+            }
+            o.set(val);
+            if(cai::isGrad && (ten[0].requires_grad)){
+                o.set_grad();
+                o.grad_func = Operator<T>::shared_from_this();
+            }
+            return o;
+        }
+    };
+    template<typename T>
+    class Min : public Operator<T>{
+        std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
+            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
+            Tensor<T> &oten = Operator<T>::output;
+            Tensor<T> gten0 = ten[0].zero();
+            gten0.foreach([&ten, &oten, &dLdx](Tensor<T> &this_, std::vector<int> &pos){
+                this_.item(pos) = (oten.item() == ten[0].item(pos) ? dLdx.item() : 0);
+            });
+            return std::vector<Tensor<T>> {gten0};
+        }
+        Tensor<T> forward(const std::vector<Tensor<T>> &ten){
+            Tensor<T> o = Tensor<T>(0);
+            int num = ten[0].get_size()-1;
+            auto pos = ten[0].initi();
+            ten[0].nexti(pos);
+            T val = ten[0].item(pos);
+            while(num--){
+                ten[0].nexti(pos);
+                val = (std::min(val ,ten[0].item(pos)));
+            }
+            o.set(val);
             if(cai::isGrad && (ten[0].requires_grad)){
                 o.set_grad();
                 o.grad_func = Operator<T>::shared_from_this();
@@ -96,10 +155,10 @@ namespace cai{
     class Mean : public Operator<T>{
         std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
             std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            Tensor<T> ten0  = ten[0].zero();
+            Tensor<T> gten0  = ten[0].zero();
             int num = ten[0].get_size();
-            ten0.set(dLdx.item() / num);
-            return std::vector<Tensor<T>> {ten0};
+            gten0.set(dLdx.item() / num);
+            return std::vector<Tensor<T>> {gten0};
         }
         Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
             Tensor<T> o = Tensor<T>(0);
@@ -123,21 +182,22 @@ namespace cai{
         std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
             if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
             std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            Tensor<T> ten0 = dLdx.zero();
+            Tensor<T> gten0 = dLdx.zero();
             setGrad(false);
                 Tensor<T> sum = ten[0].sum();
             setGrad(true);
-            ten0.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
-                this_.item(pos) = dLdx.item(pos) * ((1/sum.item() - ten[0].item() / pow(sum.item(), 2))) ;
+            gten0.foreach([&ten, &dLdx, &sum, this](Tensor<T> &this_, std::vector<int> &pos){
+                this_.item(pos) = dLdx.item(pos) * ((1/sum.item() - ten[0].item(pos) / pow(sum.item(), 2))) ;
             });
-            return std::vector<Tensor<T>> {ten0};
+            return std::vector<Tensor<T>> {gten0};
         }
         Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            Tensor<T> o = ten[0].zero();
+            Tensor<T> o = ten[0].clone();
             setGrad(false);
                 Tensor<T> sum = o.sum();
             setGrad(true);
-            o.foreach([ten](Tensor<T> &this_, std::vector<int> &pos){
+            if(sum.item() == 0) throw std::logic_error("Can't devide by 0");
+            o.foreach([&ten, &sum](Tensor<T> &this_, std::vector<int> &pos){
                 this_.item(pos) = ten[0].item(pos) / sum.item();
             });
             if(cai::isGrad && (ten[0].requires_grad)){
@@ -153,10 +213,10 @@ namespace cai{
     public:
         std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
             setGrad(false);
-                Tensor<T> ten0 = dLdx.cross(Operator<T>::inputs[1].trans());
-                Tensor<T> ten1 = Operator<T>::inputs[0].trans().cross(dLdx);
+                Tensor<T> gten0 = dLdx.cross(Operator<T>::inputs[1].trans());
+                Tensor<T> gten1 = Operator<T>::inputs[0].trans().cross(dLdx);
             setGrad(true);
-            return std::vector<Tensor<T>> {ten0, ten1};
+            return std::vector<Tensor<T>> {gten0, gten1};
         }
         Tensor<T> forward(const std::vector<Tensor<T>> &ten){
             if(ten[0].dim != ten[1].dim) throw std::domain_error("two tensor isn't same dimension");
@@ -186,29 +246,25 @@ namespace cai{
 
     template<typename T>
     Tensor<T> add(const Tensor<T> &a, const Tensor<T> &b)  {
-        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Add<T>(), [](Operator<T>* a){delete a;});
-        return (*op)(a, b);
+        return a+b;
     }
     template<typename T>
     Tensor<T> cross(const Tensor<T> &a, const Tensor<T> &b)  {
-        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Add<T>(), [](Operator<T>* a){delete a;});
-        return (*op)(a, b);
+        return a.cross(b);
     }
     template<typename T>
     Tensor<T> sub(const Tensor<T> &a, const Tensor<T> &b){
-        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Sub<T>(), [](Operator<T>* a){delete a;});
-        return (*op)(a, b);
+        return a-b;
     }
     template<typename T>
     Tensor<T> mult(const Tensor<T> &a, const Tensor<T> &b){
-        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Mult<T>(), [](Operator<T>* a){delete a;});
-        return (*op)(a, b);
+        return a*b;
     }
     template<typename T>
     Tensor<T> div(const Tensor<T> &a, const Tensor<T> &b){
-        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Div<T>(), [](Operator<T>* a){delete a;});
-        return (*op)(a, b);
+        return a/b;
     }
+
     template<typename T>
     Tensor<T> square(const Tensor<T> &a){
         std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Square<T>(), [](Operator<T>* a){delete a;});
@@ -246,6 +302,17 @@ namespace cai{
         return (*op2)((*op1)(a));
     }
 
+    template<typename T>
+    Tensor<T> max(const Tensor<T> &a){
+        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Max<T>(), [](Operator<T>* a){delete a;});
+        return (*op)(a);
+    }
+
+    template<typename T>
+    Tensor<T> min(const Tensor<T> &a){
+        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Max<T>(), [](Operator<T>* a){delete a;});
+        return (*op)(a);
+    }
 
     template<typename T>
     Tensor<T> sum(const Tensor<T> &a){

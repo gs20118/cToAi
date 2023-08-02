@@ -16,7 +16,6 @@ public:
 };
 
 void main_(){
-
     Tensor<double> x_t = rand(20, 1);
     Tensor<double> y_t = randn(20, 1);
     Tensor<double> test;
@@ -38,11 +37,23 @@ void main_(){
 
 }
 
+void main_2(){
+    Tensor<double> x = arange<double>(2, 2).set_grad();
+
+    Tensor<double> y = arange<double>(2).set_grad();
+
+    std::cout << x + y << std::endl;
+
+    std::cout << x.grad() << std::endl;
+    std::cout << y.grad() << std::endl;
+
+}
+
 int main() {
     clock_t start, finish;
     double duration;
     start = clock();
-    main_();
+    main_2();
     finish = clock();
     duration = (double)(finish - start) / CLOCKS_PER_SEC;
     std::cout << duration << "s" << std::endl;

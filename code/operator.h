@@ -36,12 +36,12 @@ namespace cai
     public:
         std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
             if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> ten0 = dLdx.zero();
+            Tensor<T> gten0 = dLdx.zero();
             std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            ten0.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
+            gten0.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
                 this_.item(pos) = backward_func(ten[0].item(pos), dLdx.item(pos));
             });
-            return std::vector<Tensor<T>> {ten0};
+            return std::vector<Tensor<T>> {gten0};
         }
         virtual T forward_func(T a){return a;};
         virtual T backward_func(T a, T L){return a;};
@@ -65,15 +65,15 @@ namespace cai
         virtual T backward0_func(T a, T b, T L){return a;};
         virtual T backward1_func(T a, T b, T L){return b;};
         std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            Tensor<T> ten0 = dLdx.zero(), ten1 = dLdx.zero();
+            Tensor<T> gten0 = dLdx.zero(), gten1 = dLdx.zero();
             std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            ten0.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
+            gten0.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
                 this_.item(pos) = backward0_func(ten[0].item(pos), ten[1].item(pos), dLdx.item(pos));
             });
-            ten1.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
+            gten1.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
                 this_.item(pos) = backward1_func(ten[0].item(pos), ten[1].item(pos), dLdx.item(pos));
             });
-            return std::vector<Tensor<T>> {ten0, ten1};
+            return std::vector<Tensor<T>> {gten0, gten1};
         }
         Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
             if(!ten[0].sameShape(ten[1])) throw std::domain_error("two tensor shape isn't same");
@@ -97,8 +97,11 @@ namespace cai
     template<typename T> class Exp;
     template<typename T> class Log;
     template<typename T> class Tanh;
+    template<typename T> class Normal;
     template<typename T> class Sum;
     template<typename T> class Mean;
+    template<typename T> class Max;
+    template<typename T> class Min;
     template<typename T> class Cross;
 
 }
