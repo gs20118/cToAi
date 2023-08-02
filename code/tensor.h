@@ -536,6 +536,55 @@ namespace cai {
             return ret;
         }
 
+        std::vector<int> broadcast(const Tensor<T> & o) const{
+            int n = max(dim, o.mdim);
+            std::vector<int> ret(n);
+            for(int i=0; i<n; i++){
+                if(i+dim < n) ret[i] = o.shape[i];
+                else if(i+o.dim < n) ret[i] = shape[i];
+                else {
+                    if(shape[i] != 1 and o.shape[i] != 1) throw std::logic_error("can't broadcast if shape isn't 1");
+                    ret[i] = std::max(shape[i], o.shape[i]);
+                }
+            }
+            return ret;
+        }
+
+        Tensor expand_(std::vector<int> resh) const {
+            Tensor<T> ret = *this;
+            if(dim < resh.size()){
+                std::vector<int> newshape(resh.size());
+                for(int i=0; i<newshape.size(); i++){
+                    if(i < newshape.size()-dim) newshape[i] = 1;
+                    else newshape[i] = shape[i + dim - newshape.size()];
+                }
+                ret = reshape(newshape);
+            }
+            for(int i=0; i<ret.dim; i++){
+                if(ret.shape[i] != resh[i]){
+                    if(ret.shape[i]!=1) throw std::logic_error("can't expand if shape isn't 1");
+                    ret.stride[i] = 0;
+                }
+            }
+            return ret;
+        }
+
+        Tensor squeeze() const {
+            int newDim = dim;
+            for(int i=0 ; i<dim; i++) if(shape[i] == 1) newDim --;
+            int * newShape = new int[newDim], *newStride = new int[newDim] ;
+            int cnt  =0 ;
+            for(int i=0; i<dim; i++){
+                if(shape[i] != 1){
+                    newShape[cnt] = shape[i];
+                    newStride[cnt] = stride[i];
+                    cnt ++;
+                }
+            }
+            Tensor<T> ret = Tensor<T>(newDim, newShape, newShape, data, offset, graddata, grad_func);
+            return ret;
+        }
+
         void zero_grad() const{
             grad().set(0);
         }
@@ -567,7 +616,7 @@ namespace cai {
         }
 
         Tensor& operator=(const Tensor &o) {
-            if (indexed || graded){
+            if (indexed || graded || !isGrad){
                 set(o);
             }
             else{
@@ -584,7 +633,7 @@ namespace cai {
             return *this;
         }
         Tensor &operator=(T v){
-            if (indexed){
+            if (indexed || !isGrad){
                 set(v);
             }
             else{

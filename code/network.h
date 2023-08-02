@@ -23,7 +23,9 @@ namespace cai{
 
         virtual void init(){}
 
-        virtual Tensor<double> forward(Tensor<double> &a){}
+        virtual Tensor<double> forward(Tensor<double> &a){
+            return a;
+        }
 
         Tensor<double> operator()(Tensor<double> &a){
             return forward(a);

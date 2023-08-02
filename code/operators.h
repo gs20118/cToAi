@@ -10,214 +10,62 @@
 #include <cmath>
 namespace cai{
     template<typename T>
-    class Add : public Operator<T> {
+    class Add : public TwoToOneOperator<T> {
     public:
-        std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            return std::vector<Tensor<T>> {dLdx.clone(), dLdx.clone()};
-        }
-        Tensor<T> forward(const std::vector<Tensor<T>> &ten){
-            if(!ten[0].sameShape(ten[1])) throw std::domain_error("two tensor isn't same shape");
-            Tensor<T> o = ten[0].zero();
-            o.foreach([&ten](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = ten[0].item(v) + ten[1].item(v);
-            });
-            if(cai::isGrad && (ten[0].requires_grad || ten[1].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
+        T forward_func(T a, T b){return a + b;};
+        T backward0_func(T a, T b, T L){return L;};
+        T backward1_func(T a, T b, T L){return L;};
     };
     template<typename T>
     class Sub : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> second = dLdx.clone();
-            second.foreach([](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = -this_.item(v);
-            });
-            return std::vector<Tensor<T>> {dLdx, second};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            if(!ten[0].sameShape(ten[1])) throw std::domain_error("two tensor shape isn't same");
-            Tensor<T> o = ten[0].zero();
-            o.foreach([&ten](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = ten[0].item(v) - ten[1].item(v);
-            });
-            if(cai::isGrad && (ten[0].requires_grad || ten[1].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
+        T forward_func(T a, T b){return a - b;};
+        T backward0_func(T a, T b, T L){return L;};
+        T backward1_func(T a, T b, T L){return -L;};
     };
     template<typename T>
     class Mult : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            return std::vector<Tensor<T>> {Operator<T>::inputs[1].detach(), Operator<T>::inputs[0].detach()};
-        }
-        Tensor<T> forward(const std::vector<Tensor<T>> &ten){
-            if(!ten[0].sameShape(ten[1])) throw std::domain_error("two tensor shape isn't same");
-            Tensor<T> o = ten[0].zero();
-            o.foreach([&ten](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = ten[0].item(v) * ten[1].item(v);
-            });
-            if(cai::isGrad && (ten[0].requires_grad || ten[1].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
+        T forward_func(T a, T b){return a * b;};
+        T backward0_func(T a, T b, T L){return b * L;};
+        T backward1_func(T a, T b, T L){return a * L;};
     };
     template<typename T>
     class Div : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            Tensor<T> first = dLdx.zero(), second = dLdx.zero();
-            std::vector<Tensor<T>> &vec = Operator<T>::inputs;
-            first.foreach([&vec, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = 1/vec[1].item(v);
-            });
-            second.foreach([&vec, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = -vec[0].item(v)/(vec[1].item(v) * vec[1].item(v));
-            });
-            return std::vector<Tensor<T>> {first, second};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            if(!ten[0].sameShape(ten[1])) throw std::domain_error("two tensor shape isn't same");
-            Tensor<T> o = ten[0].zero();
-            o.foreach([&ten](Tensor<T> &this_, std::vector<int> &v){
-                if(ten[1].item(v)==0) throw std::logic_error("can't divide by 0");
-                this_.item(v) = ten[0].item(v) / ten[1].item(v);
-            });
-            if(cai::isGrad && (ten[0].requires_grad || ten[1].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
+        T forward_func(T a, T b){
+            if(a<=0) throw std::logic_error("can't divide by 0");
+            return a / b;};
+        T backward0_func(T a, T b, T L){return L/b;};
+        T backward1_func(T a, T b, T L){return -a * L/ pow(b, 2);};
     };
 
     template<typename T>
-    class Square : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> first = dLdx.zero();
-            std::vector<Tensor<T>> &vec = Operator<T>::inputs;
-            first.foreach([&vec, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = 2 * vec[0].item(v) * dLdx.item(v);
-            });
-            return std::vector<Tensor<T>> {first};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            Tensor<T> o = ten[0].clone();
-            o.foreach([](Tensor<T> &this_, std::vector<int> &v){
-                T temp =  this_.item(v);
-                this_.item(v) = temp*temp;
-            });
-            if(cai::isGrad && (ten[0].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
+    class Square : public OneToOneOperator<T>{
+    public:
+        T forward_func(T a){return a;};
+        T backward_func(T a, T L){return 2*a*L;}
+    };
+    template<typename T>
+    class Exp : public OneToOneOperator<T>{
+        T forward_func(T a){return exp(a);};
+        T backward_func(T a, T L){return exp(a) * L;}
+    };
+    template<typename T>
+    class Log : public OneToOneOperator<T>{
+        T forward_func(T a){
+            if(a<=0) throw std::logic_error("o can't submit in log function");
+            return log(a);};
+        T backward_func(T a, T L){
+            return  L/a;
         }
     };
     template<typename T>
-    class Exp : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> first = dLdx.zero();
-            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            first.foreach([&ten, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = exp(ten[0].item(v)) * dLdx.item(v);
-            });
-            return std::vector<Tensor<T>> {first};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            Tensor<T> o = ten[0].clone();
-            o.foreach([](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = exp(this_.item(v));
-            });
-            if(cai::isGrad && (ten[0].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
+    class Tanh : public OneToOneOperator<T>{
+        T forward_func(T a){return tanh(a);};
+        T backward_func(T a, T L){return L / pow(cosh(a), 2);}
     };
     template<typename T>
-    class Log : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> first = dLdx.zero();
-            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            first.foreach([&ten, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                if(ten[0].item(v)==0) throw std::logic_error("can't divide by 0");
-                this_.item(v) = (1/ten[0].item(v)) * dLdx.item(v);
-            });
-            return std::vector<Tensor<T>> {first};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            Tensor<T> o = ten[0].clone();
-
-            o.foreach([](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = log(this_.item(v));
-            });
-            if(cai::isGrad && (ten[0].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
-    };
-    template<typename T>
-    class Tanh : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> first = dLdx.zero();
-            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            first.foreach([&ten, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                double temp = cosh(this_.item(v));
-                this_.item(v) = (1/(temp*temp)) * dLdx.item(v);
-            });
-            return std::vector<Tensor<T>> {first};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            Tensor<T> o = ten[0].clone();
-            o.foreach([](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = tanh(this_.item(v));
-            });
-            if(cai::isGrad && (ten[0].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
-    };
-    template<typename T>
-    class ReLu : public Operator<T>{
-        std::vector<Tensor<T>> backward(const  Tensor<T>& dLdx){
-            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
-            Tensor<T> first = dLdx.zero();
-            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
-            first.foreach([&ten, &dLdx](Tensor<T> &this_, std::vector<int> &v){
-                this_.item(v) = (ten[0].item(v) > 0 ? dLdx.item(v):0);
-            });
-            return std::vector<Tensor<T>> {first};
-        }
-        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
-            Tensor<T> o = ten[0].clone();
-            o.foreach([](Tensor<T> &this_, std::vector<int> &v){
-                T& temp = this_.item(v);
-                if(temp < 0) temp = 0;
-            });
-            if(cai::isGrad && (ten[0].requires_grad)){
-                o.set_grad();
-                o.grad_func = Operator<T>::shared_from_this();
-            }
-            return o;
-        }
+    class ReLu : public OneToOneOperator<T>{
+        T forward_func(T a){return a > 0 ? a:0;};
+        T backward_func(T a, T L){return a > 0 ? L : 0;}
     };
 
     template<typename T>
@@ -243,14 +91,15 @@ namespace cai{
             return o;
         }
     };
+
     template<typename T>
     class Mean : public Operator<T>{
         std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
-            std::vector<Tensor<T>> &vec = Operator<T>::inputs;
-            Tensor<T> first  = vec[0].zero();
-            int num = vec[0].get_size();
-            first.set(dLdx.item() / num);
-            return std::vector<Tensor<T>> {first};
+            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
+            Tensor<T> ten0  = ten[0].zero();
+            int num = ten[0].get_size();
+            ten0.set(dLdx.item() / num);
+            return std::vector<Tensor<T>> {ten0};
         }
         Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
             Tensor<T> o = Tensor<T>(0);
@@ -270,14 +119,44 @@ namespace cai{
     };
 
     template<typename T>
+    class Normal : public Operator<T>{
+        std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
+            if(!Operator<T>::inputs[0].sameShape(dLdx)) throw std::domain_error("dLdx isn't same shape");
+            std::vector<Tensor<T>> &ten = Operator<T>::inputs;
+            Tensor<T> ten0 = dLdx.zero();
+            setGrad(false);
+                Tensor<T> sum = ten[0].sum();
+            setGrad(true);
+            ten0.foreach([&ten, &dLdx, this](Tensor<T> &this_, std::vector<int> &pos){
+                this_.item(pos) = dLdx.item(pos) * ((1/sum.item() - ten[0].item() / pow(sum.item(), 2))) ;
+            });
+            return std::vector<Tensor<T>> {ten0};
+        }
+        Tensor<T> forward(const  std::vector<Tensor<T>> &ten){
+            Tensor<T> o = ten[0].zero();
+            setGrad(false);
+                Tensor<T> sum = o.sum();
+            setGrad(true);
+            o.foreach([ten](Tensor<T> &this_, std::vector<int> &pos){
+                this_.item(pos) = ten[0].item(pos) / sum.item();
+            });
+            if(cai::isGrad && (ten[0].requires_grad)){
+                o.set_grad();
+                o.grad_func = Operator<T>::shared_from_this();
+            }
+            return o;
+        }
+    };
+
+    template<typename T>
     class Cross : public Operator<T> {
     public:
         std::vector<Tensor<T>> backward(const Tensor<T>& dLdx){
             setGrad(false);
-                Tensor<T> first = dLdx.cross(Operator<T>::inputs[1].trans());
-                Tensor<T> second = Operator<T>::inputs[0].trans().cross(dLdx);
+                Tensor<T> ten0 = dLdx.cross(Operator<T>::inputs[1].trans());
+                Tensor<T> ten1 = Operator<T>::inputs[0].trans().cross(dLdx);
             setGrad(true);
-            return std::vector<Tensor<T>> {first, second};
+            return std::vector<Tensor<T>> {ten0, ten1};
         }
         Tensor<T> forward(const std::vector<Tensor<T>> &ten){
             if(ten[0].dim != ten[1].dim) throw std::domain_error("two tensor isn't same dimension");
@@ -286,8 +165,8 @@ namespace cai{
             int newDim = ten[0].dim;
             int* newShape = func::newArray_(newDim, ten[0].shape);
             newShape[newDim-1] = ten[1].shape[newDim-1];
-
             Tensor<T> o = Tensor<T>(newDim, newShape, 0);
+
             o.foreach([&ten](Tensor<T> &this_, std::vector<int> &v){
                 std::vector<int> v1 = v, v2 = v;
                 for(int i=0; i<ten[0].shape[ten[0].dim-1]; i++){
@@ -354,6 +233,17 @@ namespace cai{
     Tensor<T> relu(const Tensor<T> &a){
         std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new ReLu<T>(), [](Operator<T>* a){delete a;});
         return (*op)(a);
+    }
+    template<typename T>
+    Tensor<T> normal(const Tensor<T> &a){
+        std::shared_ptr<Operator<T>> op = std::shared_ptr<Operator<T>>(new Normal<T>(), [](Operator<T>* a){delete a;});
+        return (*op)(a);
+    }
+    template<typename T>
+    Tensor<T> soft_max(const Tensor<T> &a){
+        std::shared_ptr<Operator<T>> op1 = std::shared_ptr<Operator<T>>(new Exp<T>(), [](Operator<T>* a){delete a;});
+        std::shared_ptr<Operator<T>> op2 = std::shared_ptr<Operator<T>>(new Normal<T>(), [](Operator<T>* a){delete a;});
+        return (*op2)((*op1)(a));
     }
 
 

@@ -12,17 +12,9 @@ public:
     std::vector<T*> data;
     std::vector<T*> grad;
 
-    virtual void optim(){
-
-    };
-
-    virtual void set(std::vector<std::tuple<T*, T*, int>> vec){
-
-    }
-
-    virtual void init(){
-
-    }
+    virtual void optim(){};
+    virtual void set(std::vector<std::tuple<T*, T*, int>> vec){}
+    virtual void init(){}
 };
 
 template<typename T>
