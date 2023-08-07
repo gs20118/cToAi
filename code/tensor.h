@@ -33,7 +33,7 @@ namespace func{
     template<typename T>
     std::shared_ptr<T> newArray(int n, T val)
     {
-        std::shared_ptr<T> ret = std::shared_ptr<T>(new T[n], [](T* a){delete[] a;});
+        std::shared_ptr<T> ret =std::shared_ptr<T>(new T[n], [](T* a){delete[] a;});
         for(int i=0; i<n; i++) ret.get()[i] = val;
         return ret;
     }
@@ -89,7 +89,7 @@ namespace cai {
             return stride;
         }
         int *get_shape() const {
-            return stride;
+            return shape;
         }
         int get_dim() const{
             return dim;
@@ -105,9 +105,10 @@ namespace cai {
             conjugate = true;
         }
         ~Tensor(){
-            delete[] stride;
-            delete[] shape;
             data.reset();
+            delete[] shape;
+            delete[] stride;
+
             if(requires_grad){
                 graddata.reset();
                 grad_func.reset();
@@ -141,7 +142,7 @@ namespace cai {
             for(int i=dim-2; i>=0; i--)
                 stride[i] = stride[i+1] * shape[i+1];
 
-            data = func::newArray(get_size(), val);
+            data = func::newArray<T>(get_size(), val);
             conjugate = true;
         }
         Tensor(const std::vector<T> &val, const std::vector<int> &sh)
@@ -233,16 +234,12 @@ namespace cai {
         }
         void add_(const Tensor &o) const {
             if(!sameShape(o)) throw std::length_error("the shape is not equal");
-            //std::cout << "=================================" << std::endl;
+            std::cout << "=================================" << std::endl;
             std::vector<int> v = initi();
             int num = get_size();
             for(int i=0; i<num; i++) {
                 nexti(v);
-                int idx = index(v);
-                int oidx = o.index(v);
-                data.get()[idx] += o.data.get()[oidx];
-                //item(v) += o.item(v);
-                //o.print_all();
+                item(v) = item(v) + o.item(v);
             }
         }
         void sub_(const Tensor &o) const {
@@ -300,6 +297,7 @@ namespace cai {
                 this->grad_func = nullptr;
             }
         }
+
         int get_size() const{
             int ret = 1;
             for(int i=0; i<dim;i++)
@@ -468,6 +466,7 @@ namespace cai {
                 if(i!=dim -1) std:: cout<< ", ";
                 else std::cout<<")\n";
             }
+            std::cout << "stride : " << (stride) << std::endl;
             std::cout << "offset : " << offset << std::endl;
             std::cout << "conjugate : " << conjugate << std::endl;
         }
@@ -527,7 +526,7 @@ namespace cai {
                 cnt *= newShape[i];
             }
 
-            std::shared_ptr<T> newData =  std::shared_ptr<T>(new T[cnt], [](T* a){delete[] a;});
+            std::shared_ptr<T> newData =  func::newArray<T>(cnt, 0);
             std::vector<int> pos = initi();
             for(int i=0; i<cnt; i++){
                 nexti(pos);
@@ -545,7 +544,7 @@ namespace cai {
                 cnt *= newShape[i];
             }
 
-            std::shared_ptr<T> newData =  std::shared_ptr<T>(new T[cnt], [](T* a){delete[] a;});
+            std::shared_ptr<T> newData =  func::newArray<T>(cnt, 0);
             std::vector<int> pos = initi();
             for(int i=0; i<cnt; i++){
                 nexti(pos);
@@ -563,7 +562,7 @@ namespace cai {
                 cnt *= newShape[i];
             }
 
-            std::shared_ptr<T> newData =  std::shared_ptr<T>(new T[cnt], [](T* a){delete[] a;});
+            std::shared_ptr<T> newData =  func::newArray<T>(cnt, 0);
             std::vector<int> pos = initi();
             for(int i=0; i<cnt; i++){
                 nexti(pos);
@@ -665,7 +664,7 @@ namespace cai {
                     std::priority_queue<std::shared_ptr<Operator<T>>>();
             PQ.push(grad_func);
             while(!PQ.empty()){
-                std::shared_ptr<Operator<T>> gf = PQ.top();
+                const std::shared_ptr<Operator<T>> &gf = PQ.top();
                 PQ.pop();
                 std::vector<Tensor<T>> &inputs = gf.get()->inputs;
                 Tensor<T> &output = gf.get()->output;

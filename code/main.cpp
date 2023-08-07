@@ -39,7 +39,7 @@ void main_(){
 
 void main_2(){
     Tensor<double> x = rand(5, 5).set_grad();
-    Tensor<double> y = arange<double>(1, 5).set_grad();
+    Tensor<double> y = arange<double>(5, 1).set_grad();
 
     auto resh = x.broadcast_(y);
     auto a = x.expand_(resh);
@@ -47,10 +47,12 @@ void main_2(){
 
     auto z = a+b;
     auto w = z.sum();
-
+    std::cout << a.grad() << std::endl;
+    std::cout << b.grad() << std::endl;
     w.backward();
-    a.print_all();
-    std::cout << x.grad() << std::endl;
+
+    std::cout << a.grad() << std::endl;
+    std::cout << b.grad() << std::endl;
 }
 
 
